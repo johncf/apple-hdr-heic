@@ -7,7 +7,7 @@ Disclaimer: This project is NOT affiliated with, or endorsed by, Apple Inc. or a
 ## Pre-requisites
 
 * Python 3.10+
-* [`exiftool`](https://exiftool.org/)
+* [`exiftool`](https://exiftool.org/) 12.54+
   - For Ubuntu or Debian, do `sudo apt install libimage-exiftool-perl`
   - For other Linux distros, search `exiftool` using your package manager
   - For Mac or Windows, follow the instructions in website
