@@ -1,7 +1,6 @@
 import pathlib
 
 import numpy as np
-import pytest
 
 from apple_hdr_heic import (
     combine_hdrgainmap,

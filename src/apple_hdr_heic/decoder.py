@@ -1,7 +1,6 @@
 import argparse
 
 import cv2
-import numpy as np
 
 from apple_hdr_heic import load_as_bt2100_pq, quantize_to_uint16
 
