@@ -49,7 +49,7 @@ jobs:
         path: dist/
     - name: Verify version and tags
       run: |
-        filever=$(ls dist | sed -r 's/apple_hdr_heic-(.*)\.tar\.gz/\1/')
+        filever=$(ls dist | sed -nr 's/apple_hdr_heic-(.*)\.tar\.gz/\1/p')
         tagver=$(echo '${{ github.ref }}' | sed -r 's#refs/tags/v(.*)#\1#')
         echo "filever=$filever" "tagver=$tagver"
         test "$filever" = "$tagver"
