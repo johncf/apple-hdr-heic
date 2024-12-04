@@ -1,17 +1,17 @@
 from .lib import (
     apply_hdrgainmap,
-    displayp3_to_bt2020,
-    load_as_bt2100_pq,
+    clipped_colorspace_transform,
+    load_as_bt2020_linear,
     load_as_displayp3_linear,
-    quantize_to_uint16,
+    quantize_bt2020_to_bt2100_pq,
 )
 from .metadata import AppleHDRMetadata
 
 __all__ = [
     "AppleHDRMetadata",
     "apply_hdrgainmap",
-    "displayp3_to_bt2020",
-    "load_as_bt2100_pq",
+    "clipped_colorspace_transform",
+    "load_as_bt2020_linear",
     "load_as_displayp3_linear",
-    "quantize_to_uint16",
+    "quantize_bt2020_to_bt2100_pq",
 ]
