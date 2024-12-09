@@ -13,6 +13,8 @@ numpy==2.1.2
     #   scipy
 opencv-python-headless==4.10.0.84
     # via apple-hdr-heic (pyproject.toml)
+openexr==3.3.2
+    # via apple-hdr-heic (pyproject.toml)
 pillow==11.0.0
     # via
     #   imageio

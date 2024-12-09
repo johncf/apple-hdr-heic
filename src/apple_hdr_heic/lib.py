@@ -45,21 +45,27 @@ def apply_hdrgainmap(
     return dp3_hdr_linear
 
 
-def displayp3_to_bt2020(dp3_linear: FloatNDArray) -> FloatNDArray:
+def clipped_colorspace_transform(
+    rgb_linear: FloatNDArray, input_space_name: str, output_space_name: str
+) -> FloatNDArray:
     """
-    Converts an image in Display P3 color space to BT.2020 color space, using simple linear transformation.
+    Converts an image from a given linear color space to another linear color space, using simple linear transformation.
 
-    :param dp3_linear: A numpy array of shape (H, W, 3) in linear Display P3 color space.
+    :param rgb_linear: A numpy array of shape (H, W, 3).
+    :param input_space_name: The name of the linear color space that ``rgb_linear`` is in.
+    :param output_space_name: The name of the linear color space that ``rgb_linear`` should be transformed to.
 
-    :returns: A numpy array of shape (H, W, 3) in linear BT.2020 color space,
-        with negative values truncated to zero and dtype the same as ``dp3_sdr``
+    :returns: A numpy array of shape (H, W, 3) after linear color space transformation of ``rgb_linear``,
+        with negative values truncated to zero.
     """
-    assert np.issubdtype(dp3_linear.dtype, np.floating)
-    input_colourspace = colour.RGB_COLOURSPACES["Display P3"]
-    output_colourspace = colour.RGB_COLOURSPACES["ITU-R BT.2020"]
-    transform_matrix = colour.matrix_RGB_to_RGB(input_colourspace, output_colourspace).astype(dp3_linear.dtype)
-    bt2020_linear = np.tensordot(dp3_linear, transform_matrix, axes=(2, 1))
-    return np.clip(bt2020_linear, 0.0, None, out=bt2020_linear)
+    assert np.issubdtype(rgb_linear.dtype, np.floating)
+    assert input_space_name in colour.RGB_COLOURSPACES
+    assert output_space_name in colour.RGB_COLOURSPACES
+    input_space = colour.RGB_COLOURSPACES[input_space_name]
+    output_space = colour.RGB_COLOURSPACES[output_space_name]
+    transform_matrix = colour.matrix_RGB_to_RGB(input_space, output_space).astype(rgb_linear.dtype)
+    outrgb_linear = np.tensordot(rgb_linear, transform_matrix, axes=(2, 1))
+    return np.clip(outrgb_linear, 0.0, None, out=outrgb_linear)
 
 
 def load_primary_and_aux(file_name: str | Path, aux_type: str) -> tuple[FloatNDArray, FloatNDArray]:
@@ -92,27 +98,43 @@ def load_as_displayp3_linear(file_name: str | Path) -> FloatNDArray:
 
     dp3_sdr, hdrgainmap = load_primary_and_aux(file_name, aux_type)
     image_size = dp3_sdr.shape[1], dp3_sdr.shape[0]
-    hdrgainmap = cv2.resize(hdrgainmap, image_size)  # type: ignore
+    hdrgainmap = cv2.resize(hdrgainmap, image_size, interpolation=cv2.INTER_LANCZOS4)  # type: ignore
+    np.clip(hdrgainmap, 0.0, 1.0, out=hdrgainmap)
 
     return apply_hdrgainmap(dp3_sdr, hdrgainmap, headroom)
 
 
-def load_as_bt2100_pq(file_name: str | Path, white_lum: float = REF_WHITE_LUM) -> FloatNDArray:
+def load_as_bt2020_linear(file_name: str | Path) -> FloatNDArray:
     """
-    Loads an HEIC file and returns the HDR image in non-linear BT.2100 PQ color space.
+    Loads an HEIC file and returns the HDR image in linear BT.2020 color space.
 
     :param file_name: A path to an HEIC image file containing HDR gain map data.
-    :param white_lum: Luminance of reference white in cd/m2 (or nits). Default: 203 nits
 
-    :returns: A float32 array of shape (H, W, 3) in non-linear BT.2100 color space with PQ transfer function,
-        with values between 0 and 1.
+    :returns: A float32 array of shape (H, W, 3) in linear BT.2020 color space, with non-negative values.
     """
     dp3_linear = load_as_displayp3_linear(file_name)
-    bt2020_linear = displayp3_to_bt2020(dp3_linear)
-    return colour.models.eotf_inverse_BT2100_PQ(white_lum * bt2020_linear)
+    bt2020_linear = clipped_colorspace_transform(dp3_linear, "Display P3", "ITU-R BT.2020")
+    return bt2020_linear
 
 
-def quantize_to_uint16(float_array: FloatNDArray) -> npt.NDArray[np.uint16]:
+def quantize_bt2020_to_bt2100_pq(
+    bt2020_linear: FloatNDArray,
+    white_lum: float = REF_WHITE_LUM,
+) -> npt.NDArray[np.uint16]:
+    """
+    Quantize RGB pixel values in linear BT.2020 color space to non-linear BT.2100 PQ color space.
+
+    :param bt2020_linear: A float32 array of shape (H, W, 3) in linear BT.2020 color space, with non-negative values.
+    :param white_lum: Luminance of reference white in cd/m2 (or nits). Default: 203 nits
+
+    :returns: A uint16 array of shape (H, W, 3) in non-linear BT.2100 color space with PQ transfer function,
+        with values between 0 and 2^16 - 1.
+    """
+    bt2100_pq = colour.models.eotf_inverse_BT2100_PQ(white_lum * bt2020_linear)
+    return quantize_unit_interval_to_uint16(bt2100_pq)
+
+
+def quantize_unit_interval_to_uint16(float_array: FloatNDArray) -> npt.NDArray[np.uint16]:
     """
     Quantizes a floating point numpy array with values in the unit interval to a 16-bit unsigned integer.
 
